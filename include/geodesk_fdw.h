@@ -64,9 +64,10 @@ typedef struct GeodeskExecState
     GeodeskFeature current_feature;
     bool feature_valid;
     
-    /* Lazy geometry optimization */
+    /* Lazy loading optimization */
     bool needs_geometry;      /* True if geom column is requested */
     bool needs_bbox;          /* True if bbox column is requested */
+    bool needs_members;       /* True if members column is requested */
     
     /* Statistics */
     uint64 rows_fetched;
@@ -86,6 +87,7 @@ extern void geodesk_close(GeodeskConnectionHandle handle);
 extern void geodesk_reset_iteration(GeodeskConnectionHandle handle);
 extern bool geodesk_get_next_feature(GeodeskConnectionHandle handle, GeodeskFeature* out_feature);
 extern char* geodesk_get_tags_json(GeodeskConnectionHandle handle, GeodeskFeature* feature);
+extern char* geodesk_get_members_json(GeodeskConnectionHandle handle, GeodeskFeature* feature);
 extern void* geodesk_build_lwgeom(GeodeskConnectionHandle handle, GeodeskFeature* feature); /* Returns LWGEOM* */
 extern void geodesk_feature_cleanup(GeodeskFeature* feature);
 extern void geodesk_set_spatial_filter(GeodeskConnectionHandle handle, 

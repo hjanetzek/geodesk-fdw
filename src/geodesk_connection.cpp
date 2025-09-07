@@ -198,6 +198,15 @@ geodesk_get_next_feature(GeodeskConnectionHandle handle, GeodeskFeature* out_fea
         out_feature->type = static_cast<int>(f.type());
         out_feature->is_area = f.isArea();
         
+        // Store the FeaturePtr for later access
+        // Feature.ptr() returns FeaturePtr (T = FeaturePtr)
+        // FeaturePtr.ptr() returns DataPtr
+        // DataPtr.ptr() returns uint8_t*
+        FeaturePtr fptr = f.ptr();
+        DataPtr dptr = fptr.ptr();
+        uint8_t* raw = dptr.ptr();
+        out_feature->internal_ptr = static_cast<void*>(raw);
+        
         ereport(DEBUG1,
                 (errcode(ERRCODE_FDW_ERROR),
                  errmsg("Got feature: id=%lld, type=%d, is_area=%d", 
@@ -215,6 +224,168 @@ geodesk_get_next_feature(GeodeskConnectionHandle handle, GeodeskFeature* out_fea
                 (errcode(ERRCODE_FDW_ERROR),
                  errmsg("Error iterating features: %s", e.what())));
         return false;
+    }
+}
+
+/*
+ * Get members as JSON
+ * For relations: returns array of member objects with id, type, role
+ * For ways: returns array of node IDs
+ * For nodes: returns NULL
+ */
+char*
+geodesk_get_members_json(GeodeskConnectionHandle handle, GeodeskFeature* feature)
+{
+    if (!handle || !feature) return nullptr;
+    
+    auto conn = reinterpret_cast<GeodeskConnection*>(handle);
+    
+    try
+    {
+        // Get the FeatureStore from the Features collection instead
+        FeatureStore* store = nullptr;
+        if (conn->features)
+        {
+            store = conn->features->store();
+        }
+        else
+        {
+            return nullptr;
+        }
+        
+        if (!store)
+        {
+            ereport(DEBUG1,
+                    (errcode(ERRCODE_FDW_ERROR),
+                     errmsg("No FeatureStore available from Features collection")));
+            return nullptr;
+        }
+        
+        // Nodes have no members
+        if (feature->type == 0) // Node
+        {
+            return nullptr;
+        }
+        
+        std::ostringstream json;
+        
+        if (feature->type == 2) // Relation
+        {
+            // Reconstruct the Feature from the stored pointer and FeatureStore
+            FeaturePtr ptr(static_cast<const uint8_t*>(feature->internal_ptr));
+            Feature feat(store, ptr);
+            
+            json << "{\"members\":[";
+            
+            bool first = true;
+            for (Feature member : feat.members())
+            {
+                if (!first) json << ",";
+                first = false;
+                
+                json << "{";
+                json << "\"id\":" << member.id() << ",";
+                
+                // Get member type
+                json << "\"type\":\"";
+                if (member.isNode()) json << "node";
+                else if (member.isWay()) json << "way";
+                else if (member.isRelation()) json << "relation";
+                json << "\",";
+                
+                // Get role (may be empty)
+                json << "\"role\":\"";
+                std::string_view role = member.role();
+                // Escape JSON string
+                for (char c : role)
+                {
+                    switch (c)
+                    {
+                        case '"': json << "\\\""; break;
+                        case '\\': json << "\\\\"; break;
+                        case '\n': json << "\\n"; break;
+                        case '\r': json << "\\r"; break;
+                        case '\t': json << "\\t"; break;
+                        default: json << c; break;
+                    }
+                }
+                json << "\"";
+                json << "}";
+            }
+            
+            json << "]}";
+        }
+        else if (feature->type == 1) // Way
+        {
+            // Reconstruct the Feature from the stored pointer and FeatureStore
+            FeaturePtr ptr(static_cast<const uint8_t*>(feature->internal_ptr));
+            Feature feat(store, ptr);
+            
+            json << "{\"nodes\":[";
+            
+            bool first = true;
+            try 
+            {
+                geodesk::Way way(store, ptr);
+                for (geodesk::Node node : way.nodes())
+                {
+                    if (!first) json << ",";
+                    first = false;
+                    int64_t nodeId = node.id();
+                    
+                    // Check if this is an anonymous node
+                    if (node.isAnonymousNode())
+                    {
+                        // Anonymous nodes don't have real IDs, just coordinates
+                        // We could output coordinates or skip them
+                        json << "null";
+                        ereport(DEBUG1,
+                                (errcode(ERRCODE_FDW_ERROR),
+                                 errmsg("Way %ld has anonymous node at (%d,%d)", 
+                                        feature->id, node.x(), node.y())));
+                    }
+                    else
+                    {
+                        json << nodeId;
+                        if (nodeId == 0)
+                        {
+                            ereport(DEBUG1,
+                                    (errcode(ERRCODE_FDW_ERROR),
+                                     errmsg("Way %ld has tagged node with ID 0", feature->id)));
+                        }
+                    }
+                }
+            }
+            catch (const std::exception& e)
+            {
+                ereport(WARNING,
+                        (errcode(ERRCODE_FDW_ERROR),
+                         errmsg("Failed to iterate nodes for way %ld: %s", feature->id, e.what())));
+                // Return empty array on error
+                json.str("");
+                json << "{\"nodes\":[]}";
+            }
+            
+            json << "]}";
+        }
+        
+        std::string result = json.str();
+        if (result.empty())
+        {
+            return nullptr;
+        }
+        
+        // Allocate PostgreSQL memory and copy result
+        char* pg_result = (char*)palloc(result.length() + 1);
+        strcpy(pg_result, result.c_str());
+        return pg_result;
+    }
+    catch (const std::exception& e)
+    {
+        ereport(WARNING,
+                (errcode(ERRCODE_FDW_ERROR),
+                 errmsg("Failed to get members as JSON: %s", e.what())));
+        return nullptr;
     }
 }
 

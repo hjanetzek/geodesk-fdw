@@ -727,9 +727,10 @@ geodeskBeginForeignScan(ForeignScanState *node, int eflags)
     /* Get info from plan */
     festate->retrieved_attrs = (List *) linitial(fsplan->fdw_private);
     
-    /* Check if geometry or bbox columns are needed */
+    /* Check if geometry, bbox, or members columns are needed */
     festate->needs_geometry = false;
     festate->needs_bbox = false;
+    festate->needs_members = false;
     if (festate->retrieved_attrs)
     {
         ListCell *lc;
@@ -754,6 +755,13 @@ geodeskBeginForeignScan(ForeignScanState *node, int eflags)
                 ereport(DEBUG1,
                         (errcode(ERRCODE_FDW_ERROR),
                          errmsg("Bbox column requested - will extract bounds")));
+            }
+            else if (strcmp(attname, "members") == 0)
+            {
+                festate->needs_members = true;
+                ereport(DEBUG1,
+                        (errcode(ERRCODE_FDW_ERROR),
+                         errmsg("Members column requested - will extract member data")));
             }
         }
     }
@@ -965,6 +973,45 @@ geodeskIterateForeignScan(ForeignScanState *node)
                     ereport(DEBUG1,
                             (errcode(ERRCODE_FDW_ERROR),
                              errmsg("Skipping geometry construction (lazy optimization)")));
+                }
+            }
+            else if (strcmp(NameStr(attr->attname), "members") == 0)
+            {
+                /* Check if members data is actually needed */
+                if (festate->needs_members)
+                {
+                    /* Get members as JSON from libgeodesk */
+                    char* members_json = geodesk_get_members_json(festate->connection, &festate->current_feature);
+                    
+                    if (members_json)
+                    {
+                        /* Parse JSON string into JSONB */
+                        Datum jsonb_datum = DirectFunctionCall1(jsonb_in, CStringGetDatum(members_json));
+                        values[attnum - 1] = jsonb_datum;
+                        nulls[attnum - 1] = false;
+                        
+                        ereport(DEBUG1,
+                                (errcode(ERRCODE_FDW_ERROR),
+                                 errmsg("Members data set as JSONB")));
+                        
+                        /* Free the JSON string (allocated by palloc in C++) */
+                        pfree(members_json);
+                    }
+                    else
+                    {
+                        nulls[attnum - 1] = true;
+                        ereport(DEBUG1,
+                                (errcode(ERRCODE_FDW_ERROR),
+                                 errmsg("No members data for this feature")));
+                    }
+                }
+                else
+                {
+                    /* Members not needed - set NULL to save processing time */
+                    nulls[attnum - 1] = true;
+                    ereport(DEBUG1,
+                            (errcode(ERRCODE_FDW_ERROR),
+                             errmsg("Skipping members extraction (lazy optimization)")));
                 }
             }
             else
