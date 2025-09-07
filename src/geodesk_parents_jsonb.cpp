@@ -41,6 +41,7 @@ extern "C" {
  * 
  * Returns a JSONB Datum that can be directly stored in a tuple
  */
+__attribute__((visibility("default")))
 Datum
 geodesk_get_parents_jsonb_direct(GeodeskConnectionHandle handle, GeodeskFeature* feature)
 {
