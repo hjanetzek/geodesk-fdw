@@ -1,5 +1,7 @@
 # GeoDesk FDW
 
+> 🤖 **Note**: This is a weekend project, largely generated with [Claude Code](https://claude.ai/). It's functional but should be considered experimental. Contributions and improvements are welcome!
+
 A PostgreSQL Foreign Data Wrapper for [GeoDesk](https://github.com/clarisma/libgeodesk) GOL files, enabling SQL queries on OpenStreetMap data with PostGIS geometry support.
 
 ## Features
