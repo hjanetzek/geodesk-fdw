@@ -1,0 +1,30 @@
+# Build artifacts
+*.o
+*.so
+*.bc
+*.a
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Development files
+CLAUDE.local.md
+*.log
+*.txt
+.cache/
+
+# Test outputs
+regression.diffs
+regression.out
+results/
+tmp_check*/
+output_iso/
+
+# Backup files
+*.bak
+*.orig

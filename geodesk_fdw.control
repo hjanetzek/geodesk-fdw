@@ -1,0 +1,6 @@
+# geodesk_fdw extension
+comment = 'Foreign Data Wrapper for GeoDesk GOL files with PostGIS geometry support'
+default_version = '1.0'
+module_pathname = '$libdir/geodesk_fdw'
+relocatable = true
+requires = 'postgis'
