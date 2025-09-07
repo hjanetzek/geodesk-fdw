@@ -212,6 +212,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - [libgeodesk](https://github.com/clarisma/libgeodesk) by Clarisma
 - [PostGIS](https://postgis.net/) for geometry support
+- [pgsql-ogr-fdw](https://github.com/pramsey/pgsql-ogr-fdw) - Inspiration for FDW structure and PostGIS integration
+- [postgis-sfcgal](https://gitlab.com/Oslandia/SFCGAL) - Reference for direct LWGEOM construction approach
 - PostgreSQL FDW API documentation
 
 ## Contributing
