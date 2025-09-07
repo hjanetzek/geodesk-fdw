@@ -60,16 +60,16 @@ jobs:
         
     - name: Setup test database with pglite
       run: |
-        # Initialize pglite database
-        pglite init --pgdata /tmp/pgdata --pgversion 17
-        pglite start --pgdata /tmp/pgdata
-        pglite status --pgdata /tmp/pgdata
+        # Initialize pglite cluster (it manages its own data directory)
+        pglite init /usr/lib/postgresql/17/bin/pg_ctl
+        pglite start
+        pglite status
         
         # Create test database
-        pglite psql --pgdata /tmp/pgdata -c "CREATE DATABASE test_db;"
+        pglite create test_db
         
         # Install PostGIS (required for geometry type)
-        pglite psql --pgdata /tmp/pgdata -d test_db -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+        pglite psql -d test_db -c "CREATE EXTENSION IF NOT EXISTS postgis;"
         
     - name: Run tests
       run: |
@@ -78,9 +78,9 @@ jobs:
         echo "Test data path: $TEST_DATA_PATH"
         
         # Run basic tests with absolute path
-        pglite psql --pgdata /tmp/pgdata -d test_db -v test_data_path="'$TEST_DATA_PATH'" -f test/basic_test.sql
+        pglite psql -d test_db -v test_data_path="'$TEST_DATA_PATH'" -f test/basic_test.sql
         
     - name: Cleanup
       if: always()
       run: |
-        pglite stop --pgdata /tmp/pgdata || true
+        pglite stop || true
