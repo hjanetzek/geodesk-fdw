@@ -12,6 +12,7 @@ A PostgreSQL Foreign Data Wrapper for [GeoDesk](https://github.com/clarisma/libg
 - JSONB tags for flexible OSM tag queries
 - Support for all OSM types: nodes, ways, and relations
 - Zero-copy geometry transfer using LWGEOM
+- OSM data model access: relation members and way nodes via JSONB
 
 ## Prerequisites
 
@@ -90,7 +91,8 @@ CREATE FOREIGN TABLE osm_data (
     type integer,                    -- 0=node, 1=way, 2=relation
     tags jsonb,                      -- OSM tags as JSONB
     geom geometry(Geometry, 3857),  -- PostGIS geometry (Web Mercator)
-    is_area boolean                  -- true for polygonal ways
+    is_area boolean,                 -- true for polygonal ways
+    members jsonb                    -- OSM members (optional, for relations/ways)
 ) SERVER geodesk_server;
 ```
 
@@ -117,6 +119,23 @@ LIMIT 10;
 SELECT COUNT(*) FROM osm_data 
 WHERE tags @> '{"highway": "residential"}'::jsonb
   AND tags ? 'name';
+
+-- Query relation members
+SELECT fid, tags->>'name' as name,
+       jsonb_array_length(members->'members') as member_count
+FROM osm_data
+WHERE type = 2 AND members IS NOT NULL
+LIMIT 10;
+
+-- Extract relation member details
+SELECT r.fid, r.tags->>'name' as relation_name,
+       m->>'id' as member_id,
+       m->>'type' as member_type,
+       m->>'role' as member_role
+FROM osm_data r,
+     jsonb_array_elements(r.members->'members') m
+WHERE r.type = 2
+LIMIT 20;
 ```
 
 ### Table Options
@@ -150,6 +169,7 @@ Typical query performance on a city-sized extract:
 - Tag filter: 10-50x faster than PostGIS
 - Spatial filter: Uses built-in R-tree index
 - Combined filters: Multiplicative speedup
+- Members column: Only extracted when explicitly requested (lazy evaluation)
 
 ## Known Limitations
 
