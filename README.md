@@ -1,5 +1,7 @@
 # GeoDesk FDW
 
+> 🤖 **Note**: This is a weekend project, largely generated with [Claude Code](https://claude.ai/). It's functional but should be considered experimental. Contributions and improvements are welcome!
+
 A PostgreSQL Foreign Data Wrapper for [GeoDesk](https://github.com/clarisma/libgeodesk) GOL files, enabling SQL queries on OpenStreetMap data with PostGIS geometry support.
 
 ## Features
@@ -206,12 +208,21 @@ make                # Rebuild after changes
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+Note: While this extension is MIT licensed, it depends on:
+- libgeodesk (LGPL v3) - linked statically
+- PostGIS liblwgeom (GPL v2) - linked statically
+- PostgreSQL (PostgreSQL License) - linked dynamically
+
+When distributing binaries, ensure compliance with the respective licenses of these dependencies.
 
 ## Credits
 
 - [libgeodesk](https://github.com/clarisma/libgeodesk) by Clarisma
 - [PostGIS](https://postgis.net/) for geometry support
+- [pgsql-ogr-fdw](https://github.com/pramsey/pgsql-ogr-fdw) - Inspiration for FDW structure and PostGIS integration
+- [postgis-sfcgal](https://gitlab.com/Oslandia/SFCGAL) - Reference for direct LWGEOM construction approach
 - PostgreSQL FDW API documentation
 
 ## Contributing

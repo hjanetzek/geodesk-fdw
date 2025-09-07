@@ -1,50 +1,37 @@
-name: Build and Test
+name: Build
 
 on:
   push:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     
-    strategy:
-      matrix:
-        pg_version: [14, 15, 16]
-        
-    name: PostgreSQL ${{ matrix.pg_version }}
-    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Install dependencies
+    - name: Install PostgreSQL 17 and dependencies
       run: |
+        sudo apt-get install -y wget ca-certificates
+        wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+        echo "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
         sudo apt-get update
         sudo apt-get install -y \
           build-essential \
           cmake \
-          postgresql-${{ matrix.pg_version }} \
-          postgresql-server-dev-${{ matrix.pg_version }} \
-          postgresql-${{ matrix.pg_version }}-postgis-3 \
-          postgresql-${{ matrix.pg_version }}-postgis-3-scripts \
+          postgresql-17 \
+          postgresql-server-dev-17 \
+          postgresql-17-postgis-3 \
           libgeos-dev \
           libproj-dev \
           libjson-c-dev \
           libsfcgal-dev \
           libxml2-dev \
-          libgdal-dev \
           wget
-          
-    - name: Setup PostgreSQL
-      run: |
-        sudo systemctl start postgresql
-        sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
-        sudo -u postgres createdb test_db
-        sudo -u postgres psql test_db -c "CREATE EXTENSION postgis;"
         
     - name: Fetch and build dependencies
       run: |
@@ -59,76 +46,42 @@ jobs:
       run: |
         sudo make install
         
-    - name: Run basic tests
+    - name: Install test dependencies
       run: |
-        sudo -u postgres psql test_db -c "CREATE EXTENSION geodesk_fdw;"
-        sudo -u postgres psql test_db -c "\dx geodesk_fdw"
+        pip install pglite
         
-    - name: Upload build artifacts
-      if: matrix.pg_version == 16
-      uses: actions/upload-artifact@v3
-      with:
-        name: geodesk-fdw-pg${{ matrix.pg_version }}
-        path: |
-          *.so
-          *.control
-          sql/*.sql
-
-  test-example:
-    needs: build
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Install PostgreSQL and PostGIS
+    - name: Verify test data
       run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          postgresql-16 \
-          postgresql-server-dev-16 \
-          postgresql-16-postgis-3 \
-          postgresql-16-postgis-3-scripts \
-          libgeos-dev \
-          libproj-dev \
-          libjson-c-dev \
-          libsfcgal-dev \
-          wget
-          
-    - name: Setup PostgreSQL
+        # Test data (test.gol) is already in the repository
+        ls -lh test/data/
+        if [ ! -f test/data/test.gol ]; then
+          echo "Error: test/data/test.gol not found!"
+          exit 1
+        fi
+        
+    - name: Setup test database with pglite
       run: |
-        sudo systemctl start postgresql
-        sudo -u postgres createdb osm_test
-        sudo -u postgres psql osm_test -c "CREATE EXTENSION postgis;"
+        # Initialize pglite cluster (it manages its own data directory)
+        pglite init /usr/lib/postgresql/17/bin/pg_ctl
+        pglite start
+        pglite status
         
-    - name: Download test data
+        # Create test database
+        pglite create test_db
+        
+        # Install PostGIS (required for geometry type)
+        echo "CREATE EXTENSION postgis;" | pglite psql -d test_db
+        
+    - name: Run tests
       run: |
-        # Download a small OSM extract and convert to GOL
-        wget -q https://download.geofabrik.de/europe/monaco-latest.osm.pbf
-        # Note: This would require gol-tool to be available
-        # For now, we'll skip the actual data test
+        # Set absolute path for test data
+        export TEST_DATA_PATH="$GITHUB_WORKSPACE/test/data/test.gol"
+        echo "Test data path: $TEST_DATA_PATH"
         
-    - name: Fetch and build dependencies
+        # Run basic tests with absolute path (no extra quotes needed)
+        pglite psql -d test_db -v test_data_path="$TEST_DATA_PATH" -f test/basic_test.sql
+        
+    - name: Cleanup
+      if: always()
       run: |
-        ./fetch-dependencies.sh
-        
-    - name: Build and install extension
-      run: |
-        make clean
-        make
-        sudo make install
-        
-    - name: Test extension with sample queries
-      run: |
-        sudo -u postgres psql osm_test << EOF
-        CREATE EXTENSION geodesk_fdw;
-        
-        -- Create a test server (would need actual GOL file)
-        -- CREATE SERVER test_server
-        --   FOREIGN DATA WRAPPER geodesk_fdw
-        --   OPTIONS (datasource '/path/to/test.gol');
-        
-        -- Verify extension is loaded
-        SELECT * FROM pg_foreign_data_wrapper WHERE fdwname = 'geodesk_fdw';
-        EOF
+        pglite stop || true

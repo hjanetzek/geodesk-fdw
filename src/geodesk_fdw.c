@@ -47,7 +47,6 @@
 #include "liblwgeom.h"
 #include "liblwgeom_internal.h"  /* For gserialized_from_lwgeom */
 #include "lwgeom_pg.h"
-/* #include "lwgeom_geos.h" -- Not needed, using direct LWGEOM builder */
 
 PG_MODULE_MAGIC;
 
@@ -63,8 +62,6 @@ _PG_init(void)
 {
     /* Install PostGIS handlers - safe because we require PostGIS extension */
     pg_install_lwgeom_handlers();
-    
-    /* Note: We don't need to initialize GEOS since we're building LWGEOM directly */
     
     elog(DEBUG1, "GeoDesk FDW loaded with PostGIS support");
 }
