@@ -1,6 +1,6 @@
 # GeoDesk FDW
 
-> 🤖 **Note**: This is a weekend project, largely generated with [Claude Code](https://claude.ai/). It's functional but should be considered experimental. Contributions and improvements are welcome!
+> 🤖 **Note**: This is a one weekend project, largely generated with [Claude Code](https://claude.ai/). It's functional but should be considered experimental. Contributions and improvements are welcome!
 
 A PostgreSQL Foreign Data Wrapper for [GeoDesk](https://github.com/clarisma/libgeodesk) GOL files, enabling SQL queries on OpenStreetMap data with PostGIS geometry support.
 
@@ -37,18 +37,6 @@ make clean && make
 
 # Install
 sudo make install
-```
-
-### Docker Build
-
-```bash
-# Build and run with Docker Compose
-docker-compose up -d
-
-# Connect to the database
-psql -h localhost -p 5433 -U postgres -d osm
-
-# Or use pgAdmin at http://localhost:8080
 ```
 
 ### Manual Build
