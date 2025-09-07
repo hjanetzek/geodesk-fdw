@@ -4,22 +4,22 @@
 -- Test extension creation
 CREATE EXTENSION IF NOT EXISTS geodesk_fdw;
 
--- Test server creation
-CREATE SERVER IF NOT EXISTS test_geodesk_server
-FOREIGN DATA WRAPPER geodesk_fdw;
-
--- Test foreign table creation with a test GOL file
+-- Test server creation with datasource
 -- Note: :test_data_path will be replaced by the test runner
+CREATE SERVER IF NOT EXISTS test_geodesk_server
+FOREIGN DATA WRAPPER geodesk_fdw
+OPTIONS (
+    datasource :'test_data_path'
+);
+
+-- Test foreign table creation
 CREATE FOREIGN TABLE IF NOT EXISTS test_features (
     fid bigint,
     type integer,
     tags jsonb,
     geom geometry(Geometry, 3857),
     is_area boolean
-) SERVER test_geodesk_server
-OPTIONS (
-    datasource :'test_data_path'
-);
+) SERVER test_geodesk_server;
 
 -- Test 1: Check extension is loaded
 SELECT 1 AS test_1_extension_loaded
