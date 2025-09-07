@@ -25,6 +25,7 @@ jobs:
           cmake \
           postgresql-17 \
           postgresql-server-dev-17 \
+          postgresql-17-postgis-3 \
           libgeos-dev \
           libproj-dev \
           libjson-c-dev \
@@ -69,7 +70,7 @@ jobs:
         pglite create test_db
         
         # Install PostGIS (required for geometry type)
-        pglite psql -d test_db -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+        echo "CREATE EXTENSION postgis;" | pglite psql -d test_db
         
     - name: Run tests
       run: |
