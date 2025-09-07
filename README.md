@@ -20,52 +20,59 @@ A PostgreSQL Foreign Data Wrapper for [GeoDesk](https://github.com/clarisma/libg
 
 ## Building from Source
 
-### 1. Build libgeodesk
-
-```bash
-# Clone and build libgeodesk
-git clone https://github.com/clarisma/libgeodesk.git
-cd libgeodesk
-mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-make -j$(nproc)
-cd ../..
-```
-
-### 2. Build PostGIS (for liblwgeom)
-
-```bash
-# Clone and build PostGIS (only need liblwgeom)
-git clone https://github.com/postgis/postgis.git
-cd postgis
-./autogen.sh
-./configure --without-raster --without-topology
-make -C liblwgeom
-make -C libpgcommon
-cd ..
-```
-
-### 3. Build GeoDesk FDW
+### Quick Build (Recommended)
 
 ```bash
 # Clone this repository
 git clone https://github.com/yourusername/geodesk-fdw.git
 cd geodesk-fdw
 
-# Edit Makefile to update paths (lines 17-25):
-# - Update libgeodesk path (line 17)
-# - Update postgis paths (lines 18-20, 24-25)
-# Paths should point to your local builds from steps 1 and 2
+# Fetch and build dependencies automatically
+./fetch-dependencies.sh
 
 # Build the extension
 make clean && make
 
-# Install (requires PostgreSQL dev packages)
+# Install
 sudo make install
-
-# Or for development (using symlinks):
-./dev-install.sh
 ```
+
+### Docker Build
+
+```bash
+# Build and run with Docker Compose
+docker-compose up -d
+
+# Connect to the database
+psql -h localhost -p 5433 -U postgres -d osm
+
+# Or use pgAdmin at http://localhost:8080
+```
+
+### Manual Build
+
+If you prefer to build dependencies manually:
+
+1. **Build libgeodesk**:
+```bash
+git clone https://github.com/clarisma/libgeodesk.git
+cd libgeodesk
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+make -j$(nproc)
+```
+
+2. **Build PostGIS** (for liblwgeom):
+```bash
+wget https://download.osgeo.org/postgis/source/postgis-3.4.1.tar.gz
+tar -xzf postgis-3.4.1.tar.gz
+cd postgis-3.4.1
+./configure --without-raster --without-topology
+make -C liblwgeom
+make -C libpgcommon
+```
+
+3. **Update Makefile** paths and build the extension
 
 ## Usage
 

@@ -1,0 +1,134 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        pg_version: [14, 15, 16]
+        
+    name: PostgreSQL ${{ matrix.pg_version }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          postgresql-${{ matrix.pg_version }} \
+          postgresql-server-dev-${{ matrix.pg_version }} \
+          postgresql-${{ matrix.pg_version }}-postgis-3 \
+          postgresql-${{ matrix.pg_version }}-postgis-3-scripts \
+          libgeos-dev \
+          libproj-dev \
+          libjson-c-dev \
+          libsfcgal-dev \
+          libxml2-dev \
+          libgdal-dev \
+          wget
+          
+    - name: Setup PostgreSQL
+      run: |
+        sudo systemctl start postgresql
+        sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+        sudo -u postgres createdb test_db
+        sudo -u postgres psql test_db -c "CREATE EXTENSION postgis;"
+        
+    - name: Fetch and build dependencies
+      run: |
+        ./fetch-dependencies.sh
+        
+    - name: Build extension
+      run: |
+        make clean
+        make
+        
+    - name: Install extension
+      run: |
+        sudo make install
+        
+    - name: Run basic tests
+      run: |
+        sudo -u postgres psql test_db -c "CREATE EXTENSION geodesk_fdw;"
+        sudo -u postgres psql test_db -c "\dx geodesk_fdw"
+        
+    - name: Upload build artifacts
+      if: matrix.pg_version == 16
+      uses: actions/upload-artifact@v3
+      with:
+        name: geodesk-fdw-pg${{ matrix.pg_version }}
+        path: |
+          *.so
+          *.control
+          sql/*.sql
+
+  test-example:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install PostgreSQL and PostGIS
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          postgresql-16 \
+          postgresql-server-dev-16 \
+          postgresql-16-postgis-3 \
+          postgresql-16-postgis-3-scripts \
+          libgeos-dev \
+          libproj-dev \
+          libjson-c-dev \
+          libsfcgal-dev \
+          wget
+          
+    - name: Setup PostgreSQL
+      run: |
+        sudo systemctl start postgresql
+        sudo -u postgres createdb osm_test
+        sudo -u postgres psql osm_test -c "CREATE EXTENSION postgis;"
+        
+    - name: Download test data
+      run: |
+        # Download a small OSM extract and convert to GOL
+        wget -q https://download.geofabrik.de/europe/monaco-latest.osm.pbf
+        # Note: This would require gol-tool to be available
+        # For now, we'll skip the actual data test
+        
+    - name: Fetch and build dependencies
+      run: |
+        ./fetch-dependencies.sh
+        
+    - name: Build and install extension
+      run: |
+        make clean
+        make
+        sudo make install
+        
+    - name: Test extension with sample queries
+      run: |
+        sudo -u postgres psql osm_test << EOF
+        CREATE EXTENSION geodesk_fdw;
+        
+        -- Create a test server (would need actual GOL file)
+        -- CREATE SERVER test_server
+        --   FOREIGN DATA WRAPPER geodesk_fdw
+        --   OPTIONS (datasource '/path/to/test.gol');
+        
+        -- Verify extension is loaded
+        SELECT * FROM pg_foreign_data_wrapper WHERE fdwname = 'geodesk_fdw';
+        EOF

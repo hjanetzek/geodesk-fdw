@@ -17,6 +17,7 @@ CLAUDE.local.md
 *.log
 *.txt
 .cache/
+deps/
 
 # Test outputs
 regression.diffs

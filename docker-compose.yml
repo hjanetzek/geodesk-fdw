@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  geodesk-postgres:
+    build: .
+    container_name: geodesk-fdw-postgres
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=osm
+      - POSTGRES_USER=postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      # Mount GOL files directory
+      - ./data:/data:ro
+      # Persist PostgreSQL data
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Optional: pgAdmin for GUI access
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: geodesk-pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@example.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    ports:
+      - "8080:80"
+    depends_on:
+      - geodesk-postgres
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
