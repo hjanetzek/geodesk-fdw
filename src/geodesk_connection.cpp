@@ -17,18 +17,11 @@
 #include <concepts>     // For std::integral
 #include <string_view>  // For string_view methods
 
-// Enable GEOS support in libgeodesk
-#define GEODESK_WITH_GEOS
-
 // Include the full geodesk API with implementations
+// Note: We don't use GEOS - we build LWGEOM directly instead
 #include <geodesk/geodesk.h>
-#include <geodesk/geom/GeometryBuilder.h>
 
-// Include GEOS C API for geometry handling
-#include <geos_c.h>
-
-// Helper to build geometry using global GEOS context
-GEOSGeometry* buildFeatureGeometryGlobal(geodesk::FeatureStore* store, geodesk::FeaturePtr feature);
+// We don't need GeometryBuilder since we build LWGEOM directly
 
 extern "C" {
 #include "postgres.h"
