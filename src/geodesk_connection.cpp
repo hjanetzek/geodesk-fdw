@@ -672,4 +672,81 @@ geodesk_estimate_count(GeodeskConnectionHandle handle)
     return 1000; // Dummy estimate
 }
 
+/*
+ * Get parent relations for an OSM feature as JSON
+ * Returns an array of parent relations with their IDs and the role this feature has
+ */
+char*
+geodesk_get_parents_json(GeodeskConnectionHandle handle, GeodeskFeature* feature)
+{
+    if (!handle || !feature) return nullptr;
+    
+    auto conn = reinterpret_cast<GeodeskConnection*>(handle);
+    
+    // Return null for null feature
+    if (!conn->current_feature) 
+    {
+        return nullptr;
+    }
+    
+    try
+    {
+        geodesk::Feature f = *conn->current_feature;
+        
+        // Get parent relations
+        geodesk::Features parents = f.parents();
+        
+        std::ostringstream json;
+        json << "[";
+        
+        bool first = true;
+        for (geodesk::Feature parent : parents)
+        {
+            if (!first) json << ",";
+            first = false;
+            
+            json << "{";
+            json << "\"id\":" << parent.id() << ",";
+            json << "\"type\":\"" << (parent.isWay() ? "way" : "relation") << "\"";
+            
+            // Only relations have roles for their members
+            // Ways don't have roles for their nodes
+            if (parent.isRelation())
+            {
+                // Get the role this feature has in the parent relation
+                std::string role_str;
+                for (geodesk::Feature member : parent.members())
+                {
+                    if (member.id() == f.id() && 
+                        ((member.isNode() && f.isNode()) ||
+                         (member.isWay() && f.isWay()) ||
+                         (member.isRelation() && f.isRelation())))
+                    {
+                        role_str = member.role();
+                        break;
+                    }
+                }
+                json << ",\"role\":\"" << role_str << "\"";
+            }
+            
+            json << "}";
+        }
+        
+        json << "]";
+        
+        std::string result = json.str();
+        char* json_str = reinterpret_cast<char*>(palloc(result.length() + 1));
+        strcpy(json_str, result.c_str());
+        return json_str;
+    }
+    catch (const std::exception& e)
+    {
+        // Log the error but don't crash
+        ereport(WARNING,
+                (errcode(ERRCODE_FDW_ERROR),
+                 errmsg("Failed to get parent relations: %s", e.what())));
+        return nullptr;
+    }
+}
+
 } // extern "C"

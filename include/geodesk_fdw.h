@@ -68,6 +68,7 @@ typedef struct GeodeskExecState
     bool needs_geometry;      /* True if geom column is requested */
     bool needs_bbox;          /* True if bbox column is requested */
     bool needs_members;       /* True if members column is requested */
+    bool needs_parents;       /* True if parents column is requested */
     
     /* Statistics */
     uint64 rows_fetched;
@@ -88,6 +89,7 @@ extern void geodesk_reset_iteration(GeodeskConnectionHandle handle);
 extern bool geodesk_get_next_feature(GeodeskConnectionHandle handle, GeodeskFeature* out_feature);
 extern char* geodesk_get_tags_json(GeodeskConnectionHandle handle, GeodeskFeature* feature);
 extern char* geodesk_get_members_json(GeodeskConnectionHandle handle, GeodeskFeature* feature);
+extern char* geodesk_get_parents_json(GeodeskConnectionHandle handle, GeodeskFeature* feature);
 extern Datum geodesk_get_tags_jsonb_direct(GeodeskConnectionHandle handle, GeodeskFeature* feature);
 extern void* geodesk_build_lwgeom(GeodeskConnectionHandle handle, GeodeskFeature* feature); /* Returns LWGEOM* */
 extern void geodesk_feature_cleanup(GeodeskFeature* feature);

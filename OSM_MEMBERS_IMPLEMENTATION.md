@@ -1,6 +1,8 @@
-# OSM Members Implementation Summary
+# OSM Data Model Implementation
 
 ## Status: ✅ Fully Functional
+
+This document describes the implementation of OSM data model features in GeoDesk FDW, including members and parent relations.
 
 ### What Works
 1. **Relation Members**: Fully functional
@@ -79,4 +81,61 @@ FROM osm_features,
      jsonb_array_elements(members->'members') m
 WHERE type = 2  -- relations
 LIMIT 10;
+```
+
+## Parent Relations
+
+### Status: ✅ Fully Functional
+
+The `parents` column exposes which relations or ways a feature belongs to.
+
+### Implementation
+
+The `parents` column is exposed as JSONB array:
+- For **nodes**: Lists parent ways and relations
+- For **ways**: Lists parent relations
+- For **relations**: Lists parent relations (super-relations)
+
+Format: `[{"id": 123, "type": "way"}, {"id": 456, "type": "relation", "role": "outer"}]`
+
+Notes:
+- Way parents don't have roles (nodes are just part of the way's geometry)
+- Relation parents include the role this feature has in the parent
+
+### Real-World Examples
+
+1. **Highway Crossings** (nodes with multiple parent ways):
+   ```sql
+   SELECT fid, tags->>'highway' as highway, parents 
+   FROM gd_test_parents 
+   WHERE type = 0 AND tags->>'highway' = 'crossing' LIMIT 3;
+   -- Returns crossings that belong to 2+ intersecting roads
+   ```
+
+2. **Multipolygon Members** (ways belonging to relations):
+   ```sql
+   SELECT fid, parents 
+   FROM gd_test_parents 
+   WHERE type = 1 LIMIT 3;
+   -- Returns ways with roles like "outer" in multipolygon relations
+   ```
+
+### Usage Notes
+
+- A feature can have multiple parents (e.g., intersection nodes, shared boundaries)
+- Use `jsonb_array_length(parents)` to count parent relationships
+- Parent extraction is lazy - only happens when column is requested
+- Currently crashes when used in WHERE/ORDER BY clauses (known issue)
+
+### Table Definition Example
+
+```sql
+CREATE FOREIGN TABLE osm_with_parents (
+    fid BIGINT,
+    type INTEGER,  -- 0=node, 1=way, 2=relation
+    tags JSONB,
+    members JSONB,
+    parents JSONB,
+    geom geometry(Geometry, 3857)
+) SERVER geodesk_server;
 ```

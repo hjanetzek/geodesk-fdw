@@ -763,6 +763,13 @@ geodeskBeginForeignScan(ForeignScanState *node, int eflags)
                         (errcode(ERRCODE_FDW_ERROR),
                          errmsg("Members column requested - will extract member data")));
             }
+            else if (strcmp(attname, "parents") == 0)
+            {
+                festate->needs_parents = true;
+                ereport(DEBUG1,
+                        (errcode(ERRCODE_FDW_ERROR),
+                         errmsg("Parents column requested - will extract parent data")));
+            }
         }
     }
     
@@ -1008,6 +1015,45 @@ geodeskIterateForeignScan(ForeignScanState *node)
                     ereport(DEBUG1,
                             (errcode(ERRCODE_FDW_ERROR),
                              errmsg("Skipping members extraction (lazy optimization)")));
+                }
+            }
+            else if (strcmp(NameStr(attr->attname), "parents") == 0)
+            {
+                /* Check if parents data is actually needed */
+                if (festate->needs_parents)
+                {
+                    /* Get parents as JSON from libgeodesk */
+                    char* parents_json = geodesk_get_parents_json(festate->connection, &festate->current_feature);
+                    
+                    if (parents_json)
+                    {
+                        /* Parse JSON string into JSONB */
+                        Datum jsonb_datum = DirectFunctionCall1(jsonb_in, CStringGetDatum(parents_json));
+                        values[attnum - 1] = jsonb_datum;
+                        nulls[attnum - 1] = false;
+                        
+                        ereport(DEBUG1,
+                                (errcode(ERRCODE_FDW_ERROR),
+                                 errmsg("Parents data set as JSONB")));
+                        
+                        /* Free the JSON string (allocated by palloc in C++) */
+                        pfree(parents_json);
+                    }
+                    else
+                    {
+                        nulls[attnum - 1] = true;
+                        ereport(DEBUG1,
+                                (errcode(ERRCODE_FDW_ERROR),
+                                 errmsg("No parents data for this feature")));
+                    }
+                }
+                else
+                {
+                    /* Parents not needed - set NULL to save processing time */
+                    nulls[attnum - 1] = true;
+                    ereport(DEBUG1,
+                            (errcode(ERRCODE_FDW_ERROR),
+                             errmsg("Skipping parents extraction (lazy optimization)")));
                 }
             }
             else
