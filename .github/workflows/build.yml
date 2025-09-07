@@ -78,8 +78,8 @@ jobs:
         export TEST_DATA_PATH="$GITHUB_WORKSPACE/test/data/test.gol"
         echo "Test data path: $TEST_DATA_PATH"
         
-        # Run basic tests with absolute path
-        pglite psql -d test_db -v test_data_path="'$TEST_DATA_PATH'" -f test/basic_test.sql
+        # Run basic tests with absolute path (no extra quotes needed)
+        pglite psql -d test_db -v test_data_path="$TEST_DATA_PATH" -f test/basic_test.sql
         
     - name: Cleanup
       if: always()
