@@ -66,7 +66,7 @@ jobs:
         
     - name: Upload build artifacts
       if: matrix.pg_version == 16
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: geodesk-fdw-pg${{ matrix.pg_version }}
         path: |
