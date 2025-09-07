@@ -983,22 +983,16 @@ geodeskIterateForeignScan(ForeignScanState *node)
                 /* Check if members data is actually needed */
                 if (festate->needs_members)
                 {
-                    /* Get members as JSON from libgeodesk */
-                    char* members_json = geodesk_get_members_json(festate->connection, &festate->current_feature);
-                    
-                    if (members_json)
+                    /* Get members as JSONB directly (optimized) */
+                    Datum members_jsonb = geodesk_get_members_jsonb_direct(festate->connection, &festate->current_feature);
+                    if (members_jsonb)
                     {
-                        /* Parse JSON string into JSONB */
-                        Datum jsonb_datum = DirectFunctionCall1(jsonb_in, CStringGetDatum(members_json));
-                        values[attnum - 1] = jsonb_datum;
+                        values[attnum - 1] = members_jsonb;
                         nulls[attnum - 1] = false;
                         
                         ereport(DEBUG1,
                                 (errcode(ERRCODE_FDW_ERROR),
-                                 errmsg("Members data set as JSONB")));
-                        
-                        /* Free the JSON string (allocated by palloc in C++) */
-                        pfree(members_json);
+                                 errmsg("Got members JSONB for feature %ld", festate->current_feature.id)));
                     }
                     else
                     {
