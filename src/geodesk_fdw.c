@@ -1022,22 +1022,16 @@ geodeskIterateForeignScan(ForeignScanState *node)
                 /* Check if parents data is actually needed */
                 if (festate->needs_parents)
                 {
-                    /* Get parents as JSON from libgeodesk */
-                    char* parents_json = geodesk_get_parents_json(festate->connection, &festate->current_feature);
-                    
-                    if (parents_json)
+                    /* Get parents as JSONB directly (optimized) */
+                    Datum parents_jsonb = geodesk_get_parents_jsonb_direct(festate->connection, &festate->current_feature);
+                    if (parents_jsonb)
                     {
-                        /* Parse JSON string into JSONB */
-                        Datum jsonb_datum = DirectFunctionCall1(jsonb_in, CStringGetDatum(parents_json));
-                        values[attnum - 1] = jsonb_datum;
+                        values[attnum - 1] = parents_jsonb;
                         nulls[attnum - 1] = false;
                         
                         ereport(DEBUG1,
                                 (errcode(ERRCODE_FDW_ERROR),
-                                 errmsg("Parents data set as JSONB")));
-                        
-                        /* Free the JSON string (allocated by palloc in C++) */
-                        pfree(parents_json);
+                                 errmsg("Got parents JSONB for feature %ld", festate->current_feature.id)));
                     }
                     else
                     {

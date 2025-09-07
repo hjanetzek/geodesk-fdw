@@ -91,6 +91,7 @@ extern char* geodesk_get_tags_json(GeodeskConnectionHandle handle, GeodeskFeatur
 extern char* geodesk_get_members_json(GeodeskConnectionHandle handle, GeodeskFeature* feature);
 extern char* geodesk_get_parents_json(GeodeskConnectionHandle handle, GeodeskFeature* feature);
 extern Datum geodesk_get_tags_jsonb_direct(GeodeskConnectionHandle handle, GeodeskFeature* feature);
+extern Datum geodesk_get_parents_jsonb_direct(GeodeskConnectionHandle handle, GeodeskFeature* feature);
 extern void* geodesk_build_lwgeom(GeodeskConnectionHandle handle, GeodeskFeature* feature); /* Returns LWGEOM* */
 extern void geodesk_feature_cleanup(GeodeskFeature* feature);
 extern void geodesk_set_spatial_filter(GeodeskConnectionHandle handle, 

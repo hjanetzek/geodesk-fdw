@@ -693,43 +693,78 @@ geodesk_get_parents_json(GeodeskConnectionHandle handle, GeodeskFeature* feature
     {
         geodesk::Feature f = *conn->current_feature;
         
-        // Get parent relations
-        geodesk::Features parents = f.parents();
+        // Remove debug code - the issue is not with specific features
         
+        // Get parent relations
         std::ostringstream json;
         json << "[";
         
-        bool first = true;
-        for (geodesk::Feature parent : parents)
+        try 
         {
-            if (!first) json << ",";
-            first = false;
+            geodesk::Features parents = f.parents();
             
-            json << "{";
-            json << "\"id\":" << parent.id() << ",";
-            json << "\"type\":\"" << (parent.isWay() ? "way" : "relation") << "\"";
-            
-            // Only relations have roles for their members
-            // Ways don't have roles for their nodes
-            if (parent.isRelation())
+            bool first = true;
+            int parent_count = 0;
+            const int MAX_PARENTS = 100;  // Safety limit
+            for (geodesk::Feature parent : parents)
             {
-                // Get the role this feature has in the parent relation
-                std::string role_str;
-                for (geodesk::Feature member : parent.members())
+                // Safety check to prevent infinite loops
+                if (++parent_count > MAX_PARENTS)
                 {
-                    if (member.id() == f.id() && 
-                        ((member.isNode() && f.isNode()) ||
-                         (member.isWay() && f.isWay()) ||
-                         (member.isRelation() && f.isRelation())))
-                    {
-                        role_str = member.role();
-                        break;
-                    }
+                    ereport(WARNING,
+                            (errcode(ERRCODE_FDW_ERROR),
+                             errmsg("Feature %ld has more than %d parents, truncating", 
+                                    feature->id, MAX_PARENTS)));
+                    break;
                 }
-                json << ",\"role\":\"" << role_str << "\"";
+                
+                if (!first) json << ",";
+                first = false;
+                
+                json << "{";
+                json << "\"id\":" << parent.id() << ",";
+                json << "\"type\":\"" << (parent.isWay() ? "way" : "relation") << "\"";
+                
+                // Only relations have roles for their members
+                // Ways don't have roles for their nodes
+                if (parent.isRelation())
+                {
+                    // Get the role this feature has in the parent relation
+                    std::string role_str;
+                    try 
+                    {
+                        for (geodesk::Feature member : parent.members())
+                        {
+                            if (member.id() == f.id() && 
+                                ((member.isNode() && f.isNode()) ||
+                                 (member.isWay() && f.isWay()) ||
+                                 (member.isRelation() && f.isRelation())))
+                            {
+                                role_str = member.role();
+                                break;
+                            }
+                        }
+                    }
+                    catch (const std::exception& e)
+                    {
+                        ereport(WARNING,
+                                (errcode(ERRCODE_FDW_ERROR),
+                                 errmsg("Failed to get role for feature %ld in parent %ld: %s", 
+                                        feature->id, parent.id(), e.what())));
+                        // Just skip the role on error
+                    }
+                    json << ",\"role\":\"" << role_str << "\"";
+                }
+                
+                json << "}";
             }
-            
-            json << "}";
+        }
+        catch (const std::exception& e)
+        {
+            ereport(WARNING,
+                    (errcode(ERRCODE_FDW_ERROR),
+                     errmsg("Failed to iterate parents for feature %ld: %s", feature->id, e.what())));
+            // Return what we have so far
         }
         
         json << "]";

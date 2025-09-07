@@ -1,5 +1,5 @@
 MODULE_big = geodesk_fdw
-OBJS = src/geodesk_fdw.o src/geodesk_connection.o src/geodesk_lwgeom_builder.o src/geodesk_ring_assembler.o src/geodesk_options.o src/goql_converter.o src/type_filter.o src/geodesk_tags_jsonb.o
+OBJS = src/geodesk_fdw.o src/geodesk_connection.o src/geodesk_lwgeom_builder.o src/geodesk_ring_assembler.o src/geodesk_options.o src/goql_converter.o src/type_filter.o src/geodesk_tags_jsonb.o src/geodesk_parents_jsonb.o
 
 EXTENSION = geodesk_fdw
 DATA = sql/geodesk_fdw--1.0.sql
