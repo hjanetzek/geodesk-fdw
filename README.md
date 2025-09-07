@@ -206,7 +206,14 @@ make                # Rebuild after changes
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+Note: While this extension is MIT licensed, it depends on:
+- libgeodesk (LGPL v3) - linked statically
+- PostGIS liblwgeom (GPL v2) - linked statically
+- PostgreSQL (PostgreSQL License) - linked dynamically
+
+When distributing binaries, ensure compliance with the respective licenses of these dependencies.
 
 ## Credits
 
