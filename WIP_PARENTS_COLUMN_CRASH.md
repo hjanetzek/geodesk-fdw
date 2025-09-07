@@ -34,6 +34,7 @@ The crash occurred in the role extraction code when iterating through `parent.me
 ## Current Status
 - ✅ Parents column works without crashes
 - ✅ ORDER BY parents works correctly
+- ✅ Features without parents return NULL (not empty array)
 - ❌ Role information not included (temporarily disabled)
 
 ## TODO

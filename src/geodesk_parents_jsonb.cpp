@@ -46,39 +46,50 @@ geodesk_get_parents_jsonb_direct(GeodeskConnectionHandle handle, GeodeskFeature*
 {
     if (!handle || !feature) 
     {
-        /* Return empty JSONB array [] */
-        JsonbParseState *state = NULL;
-        pushJsonbValue(&state, WJB_BEGIN_ARRAY, NULL);
-        JsonbValue *result = pushJsonbValue(&state, WJB_END_ARRAY, NULL);
-        return JsonbPGetDatum(JsonbValueToJsonb(result));
+        /* Return NULL for invalid input */
+        return (Datum) 0;
     }
     
     auto conn = reinterpret_cast<GeodeskConnection*>(handle);
     
-    /* Return empty array for null feature */
+    /* Return NULL for null feature */
     if (!conn->current_feature) 
     {
-        JsonbParseState *state = NULL;
-        pushJsonbValue(&state, WJB_BEGIN_ARRAY, NULL);
-        JsonbValue *result = pushJsonbValue(&state, WJB_END_ARRAY, NULL);
-        return JsonbPGetDatum(JsonbValueToJsonb(result));
+        return (Datum) 0;
     }
     
     try
     {
         geodesk::Feature f = *conn->current_feature;
         
-        /* Build JSONB directly */
-        JsonbParseState *state = NULL;
-        JsonbValue jb_val;
-        
-        /* Start the JSONB array */
-        pushJsonbValue(&state, WJB_BEGIN_ARRAY, NULL);
-        
-        /* Get parent relations */
+        /* Get parent relations first to check if empty */
         try 
         {
             geodesk::Features parents = f.parents();
+            
+            /* Check if there are any parents */
+            bool has_parents = false;
+            for (geodesk::Feature parent : parents)
+            {
+                has_parents = true;
+                break;
+            }
+            
+            /* If no parents, return NULL */
+            if (!has_parents)
+            {
+                return (Datum) 0;
+            }
+            
+            /* Build JSONB directly */
+            JsonbParseState *state = NULL;
+            JsonbValue jb_val;
+            
+            /* Start the JSONB array */
+            pushJsonbValue(&state, WJB_BEGIN_ARRAY, NULL);
+            
+            /* Reset iterator and process parents */
+            parents = f.parents();
             
             int parent_count = 0;
             const int MAX_PARENTS = 100;  /* Safety limit */
@@ -149,6 +160,12 @@ geodesk_get_parents_jsonb_direct(GeodeskConnectionHandle handle, GeodeskFeature*
                 /* End parent object */
                 pushJsonbValue(&state, WJB_END_OBJECT, NULL);
             }
+            
+            /* End the JSONB array */
+            JsonbValue *result = pushJsonbValue(&state, WJB_END_ARRAY, NULL);
+            
+            /* Convert to Jsonb datum */
+            return JsonbPGetDatum(JsonbValueToJsonb(result));
         }
         catch (const std::exception& e)
         {
@@ -156,13 +173,10 @@ geodesk_get_parents_jsonb_direct(GeodeskConnectionHandle handle, GeodeskFeature*
                     (errcode(ERRCODE_FDW_ERROR),
                      errmsg("Failed to get parents for feature %ld: %s", 
                             feature->id, e.what())));
+            
+            /* Return NULL on inner exception */
+            return (Datum) 0;
         }
-        
-        /* End the JSONB array */
-        JsonbValue *result = pushJsonbValue(&state, WJB_END_ARRAY, NULL);
-        
-        /* Convert to Jsonb datum */
-        return JsonbPGetDatum(JsonbValueToJsonb(result));
     }
     catch (const std::exception& e)
     {
@@ -170,11 +184,8 @@ geodesk_get_parents_jsonb_direct(GeodeskConnectionHandle handle, GeodeskFeature*
                 (errcode(ERRCODE_FDW_ERROR),
                  errmsg("Failed to build parents JSONB: %s", e.what())));
         
-        /* Return empty array on error */
-        JsonbParseState *state = NULL;
-        pushJsonbValue(&state, WJB_BEGIN_ARRAY, NULL);
-        JsonbValue *result = pushJsonbValue(&state, WJB_END_ARRAY, NULL);
-        return JsonbPGetDatum(JsonbValueToJsonb(result));
+        /* Return NULL on error */
+        return (Datum) 0;
     }
 }
 
