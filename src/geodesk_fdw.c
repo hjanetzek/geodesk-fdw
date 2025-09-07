@@ -884,25 +884,21 @@ geodeskIterateForeignScan(ForeignScanState *node)
             }
             else if (strcmp(NameStr(attr->attname), "tags") == 0)
             {
-                /* Get tags as JSON */
-                char* json_str = geodesk_get_tags_json(festate->connection, &festate->current_feature);
-                if (json_str)
+                /* Get tags as JSONB directly (optimized) */
+                Datum tags_jsonb = geodesk_get_tags_jsonb_direct(festate->connection, &festate->current_feature);
+                if (tags_jsonb)
                 {
+                    values[attnum - 1] = tags_jsonb;
+                    nulls[attnum - 1] = false;
                     ereport(DEBUG1,
                             (errcode(ERRCODE_FDW_ERROR),
-                             errmsg("Tags JSON: %s", json_str)));
-                    
-                    /* Convert JSON C string directly to JSONB using jsonb_in */
-                    values[attnum - 1] = DirectFunctionCall1(jsonb_in, 
-                                                            CStringGetDatum(json_str));
-                    nulls[attnum - 1] = false;
-                    free(json_str);
+                             errmsg("Tags JSONB built directly (optimized)")));
                 }
                 else
                 {
                     ereport(DEBUG1,
                             (errcode(ERRCODE_FDW_ERROR),
-                             errmsg("No tags JSON returned")));
+                             errmsg("No tags returned")));
                     nulls[attnum - 1] = true;
                 }
             }

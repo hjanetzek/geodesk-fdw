@@ -88,6 +88,7 @@ extern void geodesk_reset_iteration(GeodeskConnectionHandle handle);
 extern bool geodesk_get_next_feature(GeodeskConnectionHandle handle, GeodeskFeature* out_feature);
 extern char* geodesk_get_tags_json(GeodeskConnectionHandle handle, GeodeskFeature* feature);
 extern char* geodesk_get_members_json(GeodeskConnectionHandle handle, GeodeskFeature* feature);
+extern Datum geodesk_get_tags_jsonb_direct(GeodeskConnectionHandle handle, GeodeskFeature* feature);
 extern void* geodesk_build_lwgeom(GeodeskConnectionHandle handle, GeodeskFeature* feature); /* Returns LWGEOM* */
 extern void geodesk_feature_cleanup(GeodeskFeature* feature);
 extern void geodesk_set_spatial_filter(GeodeskConnectionHandle handle, 
