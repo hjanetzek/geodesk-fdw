@@ -18,7 +18,6 @@
 #include <string_view>  // For string_view methods
 
 // Include the full geodesk API with implementations
-// Note: We don't use GEOS - we build LWGEOM directly instead
 #include <geodesk/geodesk.h>
 
 // We don't need GeometryBuilder since we build LWGEOM directly
@@ -494,75 +493,6 @@ geodesk_set_goql_filter(GeodeskConnectionHandle handle, const char* goql)
  */
 
 /*
- * Get GEOS geometry for the cached current feature
- */
-void*
-geodesk_get_geometry(GeodeskConnectionHandle handle)
-{
-    if (!handle) return nullptr;
-    
-    auto conn = reinterpret_cast<GeodeskConnection*>(handle);
-    
-    try
-    {
-        // Use the cached feature
-        if (!conn->current_feature)
-        {
-            return nullptr;
-        }
-        
-        Feature f = *conn->current_feature;
-        
-        // PostGIS uses the global GEOS context (via initGEOS).
-        // We need to use nullptr to indicate we want the global context.
-        // However, libgeodesk's GeometryBuilder requires a non-null context.
-        // So we'll use our wrapper that uses global GEOS functions.
-        
-        ereport(DEBUG1,
-                (errcode(ERRCODE_FDW_ERROR),
-                 errmsg("geodesk_get_geometry: Using global GEOS context for feature type %d", 
-                        static_cast<int>(f.type()))));
-        
-        GEOSGeometry* geom = nullptr;
-        try 
-        {
-            ereport(DEBUG1,
-                    (errcode(ERRCODE_FDW_ERROR),
-                     errmsg("geodesk_get_geometry: Calling buildFeatureGeometryGlobal")));
-            
-            geom = buildFeatureGeometryGlobal(conn->features->store(), f.ptr());
-            
-            ereport(DEBUG1,
-                    (errcode(ERRCODE_FDW_ERROR),
-                     errmsg("geodesk_get_geometry: Geometry built successfully: %p", geom)));
-        }
-        catch (const std::exception& e)
-        {
-            ereport(WARNING,
-                    (errcode(ERRCODE_FDW_ERROR),
-                     errmsg("buildFeatureGeometryGlobal threw exception: %s", e.what())));
-            return nullptr;
-        }
-        catch (...)
-        {
-            ereport(WARNING,
-                    (errcode(ERRCODE_FDW_ERROR),
-                     errmsg("buildFeatureGeometryGlobal threw unknown exception")));
-            return nullptr;
-        }
-        
-        return reinterpret_cast<void*>(geom);
-    }
-    catch (const std::exception& e)
-    {
-        ereport(WARNING,
-                (errcode(ERRCODE_FDW_ERROR),
-                 errmsg("Error getting geometry: %s", e.what())));
-        return nullptr;
-    }
-}
-
-/*
  * Estimate feature count
  */
 int64_t
@@ -572,63 +502,3 @@ geodesk_estimate_count(GeodeskConnectionHandle handle)
 }
 
 } // extern "C"
-
-// Implementation of global GEOS geometry builder
-// This uses global GEOS functions instead of thread-local context functions
-GEOSGeometry* buildFeatureGeometryGlobal(geodesk::FeatureStore* store, geodesk::FeaturePtr feature)
-{
-    using namespace geodesk;
-    
-    try
-    {
-        FeatureType ftype = feature.type();
-        
-        ereport(DEBUG1,
-                (errcode(ERRCODE_FDW_ERROR),
-                 errmsg("buildFeatureGeometryGlobal: feature type = %d", static_cast<int>(ftype))));
-        
-        if (ftype == FeatureType::NODE)
-        {
-            NodePtr node(feature);
-            double x = node.x();
-            double y = node.y();
-            
-            ereport(DEBUG1,
-                    (errcode(ERRCODE_FDW_ERROR),
-                     errmsg("buildFeatureGeometryGlobal: Creating point at (%f, %f)", x, y)));
-            
-            GEOSCoordSequence* coordSeq = GEOSCoordSeq_create(1, 2);
-            if (!coordSeq)
-            {
-                ereport(WARNING,
-                        (errcode(ERRCODE_FDW_ERROR),
-                         errmsg("Failed to create coordinate sequence")));
-                return nullptr;
-            }
-            
-            GEOSCoordSeq_setXY(coordSeq, 0, x, y);
-            GEOSGeometry* geom = GEOSGeom_createPoint(coordSeq);
-            
-            ereport(DEBUG1,
-                    (errcode(ERRCODE_FDW_ERROR),
-                     errmsg("buildFeatureGeometryGlobal: Point created: %p", geom)));
-            
-            return geom;
-        }
-        else
-        {
-            // TODO: Implement way and relation geometry
-            ereport(DEBUG1,
-                    (errcode(ERRCODE_FDW_ERROR),
-                     errmsg("buildFeatureGeometryGlobal: Unsupported type %d, returning null", static_cast<int>(ftype))));
-            return nullptr;
-        }
-    }
-    catch (const std::exception& e)
-    {
-        ereport(WARNING,
-                (errcode(ERRCODE_FDW_ERROR),
-                 errmsg("buildFeatureGeometryGlobal exception: %s", e.what())));
-        return nullptr;
-    }
-}
