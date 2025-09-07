@@ -24,7 +24,8 @@ if [ ! -d "libgeodesk" ]; then
     git clone --depth 1 https://github.com/clarisma/libgeodesk.git
     cd libgeodesk
     mkdir -p build && cd build
-    cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DUSE_GEOS=OFF
+    # Build without GEOS - we use PostGIS LWGEOM instead
+    cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DGEODESK_WITH_GEOS=OFF
     make -j$(nproc)
     cd ../..
     echo -e "${GREEN}✓ libgeodesk built successfully${NC}"
