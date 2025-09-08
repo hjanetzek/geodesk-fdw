@@ -27,7 +27,9 @@ CREATE FOREIGN TABLE IF NOT EXISTS test_full (
     type integer,
     tags jsonb,
     geom geometry(Geometry, 3857),
-    is_area boolean
+    is_area boolean,
+    members jsonb,
+    parents jsonb
 ) SERVER geodesk_test_server
 OPTIONS (
     datasource 'test/data/test.gol'
@@ -39,7 +41,9 @@ CREATE FOREIGN TABLE IF NOT EXISTS test_filtered (
     type integer,
     tags jsonb,
     geom geometry(Geometry, 3857),
-    is_area boolean
+    is_area boolean,
+    members jsonb,
+    parents jsonb
 ) SERVER geodesk_test_server
 OPTIONS (
     datasource 'test/data/test.gol',

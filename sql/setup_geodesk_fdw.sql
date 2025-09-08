@@ -27,7 +27,9 @@ CREATE FOREIGN TABLE IF NOT EXISTS gd_features (
     type integer,        -- Column 2: Feature type (0=node, 1=way, 2=relation)
     tags jsonb,          -- Column 3: Tags as JSONB
     geom geometry(Geometry, 3857),  -- Column 4: Geometry
-    is_area boolean      -- Column 5: True if way is an area
+    is_area boolean,     -- Column 5: True if way is an area
+    members jsonb,       -- Column 6: Relation members / way nodes
+    parents jsonb        -- Column 7: Parent relations/ways
 )
 SERVER geodesk_server;
 

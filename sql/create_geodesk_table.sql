@@ -40,7 +40,9 @@ BEGIN
             type integer,
             tags jsonb,
             geom geometry(Geometry, 3857),
-            is_area boolean
+            is_area boolean,
+            members jsonb,
+            parents jsonb
         )
         SERVER %I',
         table_name, srv_name);
@@ -70,7 +72,9 @@ CREATE FOREIGN TABLE filtered_buildings (
     type integer,
     tags jsonb,
     geom geometry(Geometry, 3857),
-    is_area boolean
+    is_area boolean,
+    members jsonb,
+    parents jsonb
 )
 SERVER geodesk_server
 OPTIONS (
